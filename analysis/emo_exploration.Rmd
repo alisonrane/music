@@ -15,8 +15,6 @@ knitr::opts_chunk$set(echo = TRUE, warning = FALSE, message = FALSE)
 library(tidyverse)
 library(spotifyr) # https://github.com/charlie86/spotifyr
 library(ggridges)
-library(scales)
-library(janitor)
 
 theme_set(theme_minimal())
 
@@ -120,7 +118,7 @@ df_plot %>%
 ```
 
 
-Looking at these confidence features by the emo waves in Bruton's article, I'm seeing danceability confidence creep up over time while the energy distribution flattens out. The plot below shows the median values for these two features by album release year. The trajectory isn't dramatic, but looks like it's there.
+Looking at these confidence features by the emo waves in Bruton's article, I'm seeing danceability confidence creep up over time while the energy distribution flattens out. The plot below shows the median values for these two track features by album release year. The trajectory isn't dramatic, but looks like it's there.
 
 
 ```{r}
@@ -130,14 +128,14 @@ df_plot %>%
   summarize(value = median(value, na.rm = T)) %>%
   ungroup() %>%
   ggplot(aes(album_release_year, value, color = fct_rev(name))) +
-    labs(title = "Emo Danceability and Energy Over Time",
+    labs(title = "Median Emo Danceability and Energy Over Time",
          x = "Album Release Year", y = NULL, color = NULL) +
     geom_smooth(se = FALSE, lty = 2, size = 0.5) +
     geom_line() 
 ```
 
 
-I wonder if there are differences between the bands that I have played on repeat and those that I haven't. I should probably only look at those bands whose music I actually know decently well, so I've filtered to those bands below. 
+I wonder if there are differences between tracks from the bands that I have played on repeat and those that I haven't. I should probably only look at those bands whose music I actually know decently well, so I've filtered to those bands below. 
 
 
 ```{r}
@@ -163,20 +161,20 @@ known_bands %>%
 ```
 
 
-Not a ton of difference between my regular rotation bands and the others. Looks like I tend toward slightly less danceability, lower energy, but higher valence. Some of this might be influenced by higher proportion of second wave tracks in my regular rotation category. The table below reveals me as an old Millennial, with much higher proportions of tracks from regular rotation bands in the 1994 to 2008 waves.
+Not a ton of difference between my regular rotation bands' tracks and the others. Looks like I tend toward slightly less danceability, lower energy, but higher valence. Some of this might be influenced by higher proportion of second wave tracks in my regular rotation category. The table below reveals me as an old Millennial, with much higher proportions of tracks from regular rotation bands in the 1994 to 2008 waves.
 
 
 ```{r}
 df %>%
   left_join(emo_bands, by = "artist_id") %>%
   filter(!is.na(wave)) %>%
-  select(danceability:tempo, regular_rotation, wave) %>%
+  select(know_them_now, regular_rotation, wave) %>%
   mutate(regular_rotation = case_when(
     regular_rotation == 0 ~ "Not Regular Rotation",
     regular_rotation == 1 ~ "Regular Rotation",
     T ~ NA_character_
     )) %>% 
-  tabyl(regular_rotation, wave) %>%
+  janitor::tabyl(regular_rotation, wave) %>%
   knitr::kable()
 ```
 
