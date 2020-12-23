@@ -1,0 +1,190 @@
+---
+title: "Emo Exploration"
+date: "`r Sys.Date()`"
+output: html_document
+---
+
+Though I might have denied it publicly, I considered myself into emo music as a high schooler. I hadn't thought much about the genre since, and so I was surprised and intrigued to find [this 2018 Fansided article](https://fansided.com/2018/08/15/fourth-wave-emo-revival-bands-tours-definition-music-songs/) by Michelle Bruton: surprised that people think enough about/of emo to put it into waves, and honestly, very surprised to see people attribute new bands to it! So, because these bands are a love of mine, I decided to explore their data. Let's go!
+
+
+```{r include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, warning = FALSE, message = FALSE)
+```
+
+```{r results = 'hide'}
+library(tidyverse)
+library(spotifyr) # https://github.com/charlie86/spotifyr
+library(ggridges)
+library(scales)
+library(janitor)
+
+theme_set(theme_minimal())
+
+here::i_am("analysis/emo_exploration.Rmd")
+```
+
+
+I decided to use [Bruton's article](https://fansided.com/2018/08/15/fourth-wave-emo-revival-bands-tours-definition-music-songs/) as the basis of this exploration, since it provides some music-nerd quality control to the bands I'm going to explore (both in band quality as well as vouching for their characterization as "emo"). I recorded each of the bands mentioned in the article, including those that are decidedly not emo, then coded each with the era to which they are attributed and my personal familiarity with them: had I heard of them before this article? Do I know their music reasonably well? Did I have them in regular rotation at any time? Some of these bands were mentioned in an ambiguous way with regard to their category (is Coheed and Cambria emo? Not sure...), so I checked those against [isthisbandemo.com](http://isthisbandemo.com/) and made an educated guess about their wave based on where they were mentioned in the article and their album release dates. 
+
+
+```{r}
+personal_emo <- read_csv(here::here("data/emo.csv"))
+```
+
+
+Next, I used the [`spotifyr`](https://github.com/charlie86/spotifyr) package to access Spotify data on the bands. I've used APIs before, so between the documentation for `spotifyr` and from [Spotify](https://developer.spotify.com/documentation/web-api/quick-start/), it was pretty quick to get up and running. Below I'm accessing my app's credentials by setting System Environment variables so I don't have to specify the authentication token argument each time I run a `spotifyr` function. 
+
+
+```{r}
+Sys.setenv(SPOTIFY_CLIENT_ID = keyring::key_list("Spotify")[1,2])
+Sys.setenv(SPOTIFY_CLIENT_SECRET = keyring::key_get("Spotify"))
+```
+
+
+I'm really only interested in the bands that are specifically identified as emo in Brunton's article, so I filtered to those before accessing Spotify data. I had some issues with a few bands, possibly because the search yielded several bands with similar names. I decided to just leave those out on the first pass, and then fill in these and some other missing IDs manually.
+
+
+```{r}
+emo_bands <- personal_emo %>% 
+  filter(wave != "Not Emo" & !is.na(wave)) %>%
+  # get_artist_audio_features had issues returning these results when mapping the band's names
+  filter(!(band %in% c("Embrace", "Bicycle Inn", "Owen", "Moss Icon")))
+
+df <- map_df(emo_bands$band, get_artist_audio_features)
+
+band_ids <- df %>%
+  select(artist_id, artist_name) %>%
+  distinct() %>%
+  mutate(artist_name = str_to_title(artist_name))
+  
+emo_bands <- personal_emo %>%
+  filter(wave != "Not Emo" & !is.na(wave)) %>%
+  mutate(band = str_to_title(band),
+         band = str_replace(band, coll("-"), " ")) %>%
+  left_join(band_ids, by = c("band" = "artist_name")) %>%
+  mutate(artist_id = case_when(
+    band == "Elliott" ~ "6KkOfCQtoMpjS2qYgDxmHI",
+    band == "Cap’n Jazz" ~ "3JhEcBWSCPXkRMt1VK14i4",
+    band == "Orchid" ~ "6tEdQbmg3bKE6IjmH5hO9d",
+    band == "Petal" ~ "1PRwnbMe9C9m80g9g0bWN2",
+    band == "Embrace" ~ "5Lzz2tZ2hKO8PDslKBQgZL",
+    band == "Bicycle Inn" ~ "1yASKWIXocIGDMpUt9AyoR",
+    band == "Owen" ~ "4PJbP0dXALttfo1PFPY1Pt",
+    band == "Moss Icon" ~ "2mSqzpfJGBqSTIQa3uqDco",
+    T ~ artist_id
+      )
+    )
+```
+
+
+The `get_artist_audio_features` function pulls down multiple tracks per artist, each with [Spotify's feature confidence measures](https://developer.spotify.com/documentation/web-api/reference/tracks/get-audio-features/). These feature measures are potential qualities of the songs, from acousticness (whether the song is acoustic or electric) to valence (the "musical positiveness" of the song) on a 0 to 1 confidence scale.
+
+
+```{r}
+df_plot <- df %>%
+  left_join(emo_bands, by = "artist_id") %>%
+  select(artist_name, album_release_year, wave, danceability, 
+         energy, tempo, loudness, speechiness, acousticness,
+         instrumentalness, liveness, valence) %>% 
+  filter(!is.na(wave)) %>%
+  pivot_longer(cols = c(-artist_name, -wave, -album_release_year)) 
+```
+
+
+Spotify's documentation includes histograms of the overall distribution of these features. Visually comparing those histograms to the ones below representing the emo tracks, it looks like the emo bands are overall less likely to be [acoustic](https://developer.spotify.com/assets/audio/acousticness.png), [danceable](https://developer.spotify.com/assets/audio/danceability.png), and high [valence](https://developer.spotify.com/assets/audio/valence.png), i.e. less likely to be cheerful...duh.
+
+
+```{r}
+ggplot(df_plot %>% filter(!(name %in% c("tempo", "loudness"))), 
+       aes(value)) +
+  labs(title = "Overall Emo Features") +
+  geom_histogram(bins = 20, fill = "black", alpha = 0.9) + 
+  facet_wrap(~name, scales = "free_y") +
+  scale_x_continuous(name = "Confidence") +
+  scale_y_continuous(name = NULL)
+```
+
+
+But contrary to the idea that emo is totally sadsack music and lest anyone doubt emo's post-hardcore origins, the emo bands' tracks are generally higher [energy](https://developer.spotify.com/assets/audio/energy.png) than Spotify's overall track distribution. 
+
+
+```{r}
+df_plot %>%
+  filter(!(name %in% c("tempo", "loudness"))) %>%
+  ggplot(aes(value, fct_rev(name))) +
+    labs(title = "Features by Emo Wave") +
+    geom_density_ridges(scale = 3) +
+    facet_wrap(~wave) + 
+    scale_x_continuous(name = "Confidence") +
+    scale_y_discrete(name = NULL, labels = str_to_title)
+```
+
+
+Looking at these confidence features by the emo waves in Bruton's article, I'm seeing danceability creep up over time while the energy distribution flattens out. The plot below shows the median values for these two features by album release year. The trajectory isn't dramatic, but looks like it's there.
+
+
+```{r}
+df_plot %>%
+  filter(name %in% c("danceability", "energy")) %>%
+  group_by(album_release_year, name) %>%
+  summarize(value = median(value, na.rm = T)) %>%
+  ungroup() %>%
+  ggplot(aes(album_release_year, value, color = fct_rev(name))) +
+    labs(title = "Emo Danceability and Energy Over Time",
+         x = "Album Release Year", y = NULL, color = NULL) +
+    geom_smooth(se = FALSE, lty = 2, size = 0.5) +
+    geom_line() 
+```
+
+
+I wonder if there are differences between the bands that I have played on repeat and those that I haven't. I should probably only look at those bands that I actually know. 
+
+
+```{r}
+known_bands <- df %>%
+  left_join(emo_bands, by = "artist_id") %>%
+  filter(know_them_now == 1) %>%
+  select(artist_name, album_release_year, wave, regular_rotation,
+         danceability, energy, speechiness,
+         acousticness, instrumentalness, liveness, valence)
+
+known_bands %>% count(regular_rotation)
+
+known_bands %>%
+  pivot_longer(cols = -c(artist_name, album_release_year, wave, 
+                        regular_rotation)) %>%
+  ggplot(aes(fct_rev(str_to_title(name)), value, 
+             fill = factor(regular_rotation))) +
+    geom_boxplot() +
+    coord_flip() +
+    labs(y = NULL, x = NULL) +
+    scale_fill_discrete(labels = c("Not Regular Rotation", "Regular Rotation"),
+                        name = NULL)
+```
+
+
+Not a ton of difference between my regular rotate bands and the others. Looks like I tend toward slightly less danceability, lower energy, but higher valence. Some of this might be influenced by higher proportion of second wave tracks in my regular rotation category. The table below reveals me to be an old Millennial, with much higher proportions of tracks from regular rotation bands in the 1994 to 2008 waves.
+
+
+```{r}
+df %>%
+  left_join(emo_bands, by = "artist_id") %>%
+  filter(!is.na(wave)) %>%
+  select(danceability:tempo, regular_rotation, wave) %>%
+  mutate(regular_rotation = case_when(
+    regular_rotation == 0 ~ "Not Regular Rotation",
+    regular_rotation == 1 ~ "Regular Rotation",
+    T ~ NA_character_
+    )) %>% 
+  tabyl(regular_rotation, wave) %>%
+  knitr::kable()
+```
+
+
+That's all for now, but I might look deeper into individual albums or pulling more complete discographies at a later point. I also haven't yet tried to access my own listening data with `spotifyr`, in part because Spotify didn't exist when I was listening to many of these bands, but since I've been revisiting many of them now for this project, that could be another next step.
+
+
+```{r, include = FALSE}
+# for future work
+albums <- map_df(emo_bands$artist_id[1:3], get_artist_albums)
+```
