@@ -24,7 +24,7 @@ here::i_am("analysis/emo_exploration.Rmd")
 ```
 
 
-I decided to use [Bruton's article](https://fansided.com/2018/08/15/fourth-wave-emo-revival-bands-tours-definition-music-songs/) as the basis of this exploration, since it provides some music-nerd quality control to the bands I'm going to explore (both in band quality as well as vouching for their characterization as "emo"). I recorded each of the bands mentioned in the article, including those that are decidedly not emo, then coded each with the era to which they are attributed and my personal familiarity with them: had I heard of them before this article? Do I know their music reasonably well? Did I have them in regular rotation at any time? Some of these bands were mentioned in an ambiguous way with regard to their category (is Coheed and Cambria emo? Not sure...), so I checked those against [isthisbandemo.com](http://isthisbandemo.com/) and made an educated guess about their wave based on where they were mentioned in the article and their album release dates. 
+I decided to use [Bruton's article](https://fansided.com/2018/08/15/fourth-wave-emo-revival-bands-tours-definition-music-songs/) as the source of bands for this analysis, since it provides some music-nerd quality control to the bands I'm going to explore (both in band quality as well as vouching for their characterization as "emo"). I recorded each of the bands mentioned in the article, including those that are decidedly not emo, then coded each with the era to which they are attributed and my personal familiarity with them: had I heard of them before this article? Do I know their music reasonably well? Did I have them in regular rotation at any time? Some of these bands were mentioned in an ambiguous way with regard to their category (is Coheed and Cambria emo? Not sure...), so I checked those against [isthisbandemo.com](http://isthisbandemo.com/) and made an educated guess about their wave based on where they were mentioned in the article and their album release dates. 
 
 
 ```{r}
@@ -32,7 +32,7 @@ personal_emo <- read_csv(here::here("data/emo.csv"))
 ```
 
 
-Next, I used the [`spotifyr`](https://github.com/charlie86/spotifyr) package to access Spotify data on the bands. I've used APIs before, so between the documentation for `spotifyr` and from [Spotify](https://developer.spotify.com/documentation/web-api/quick-start/), it was pretty quick to get up and running. Below I'm accessing my app's credentials by setting System Environment variables so I don't have to specify the authentication token argument each time I run a `spotifyr` function. 
+Next, I used the [`spotifyr`](https://github.com/charlie86/spotifyr) package to access Spotify data on the bands. I've used APIs before, so between the documentation for `spotifyr` and [Spotify's API](https://developer.spotify.com/documentation/web-api/quick-start/), it was pretty quick to get up and running. Below I'm accessing my app's credentials by setting System Environment variables so I don't have to specify the authentication token argument each time I run a `spotifyr` function. 
 
 
 ```{r}
@@ -41,7 +41,7 @@ Sys.setenv(SPOTIFY_CLIENT_SECRET = keyring::key_get("Spotify"))
 ```
 
 
-I'm really only interested in the bands that are specifically identified as emo in Brunton's article, so I filtered to those before accessing Spotify data. I had some issues with a few bands, possibly because the search yielded several bands with similar names. I decided to just leave those out on the first pass, and then fill in these and some other missing IDs manually.
+I'm really only interested in the bands that are specifically identified as emo in Brunton's article or by isthisbandemo.com, so I filtered to those before accessing Spotify data. I used `purrr::map_df` to loop through the band names, and this caused issues on a few of them, possibly because the search yielded several bands with similar names. I decided to leave those out on the first pass, and then fill in these and some other missing IDs manually. Gathering these IDs is mostly in case I want to pull additional Spotify data later.
 
 
 ```{r}
@@ -120,7 +120,7 @@ df_plot %>%
 ```
 
 
-Looking at these confidence features by the emo waves in Bruton's article, I'm seeing danceability creep up over time while the energy distribution flattens out. The plot below shows the median values for these two features by album release year. The trajectory isn't dramatic, but looks like it's there.
+Looking at these confidence features by the emo waves in Bruton's article, I'm seeing danceability confidence creep up over time while the energy distribution flattens out. The plot below shows the median values for these two features by album release year. The trajectory isn't dramatic, but looks like it's there.
 
 
 ```{r}
@@ -137,7 +137,7 @@ df_plot %>%
 ```
 
 
-I wonder if there are differences between the bands that I have played on repeat and those that I haven't. I should probably only look at those bands that I actually know. 
+I wonder if there are differences between the bands that I have played on repeat and those that I haven't. I should probably only look at those bands whose music I actually know decently well, so I've filtered to those bands below. 
 
 
 ```{r}
@@ -163,7 +163,7 @@ known_bands %>%
 ```
 
 
-Not a ton of difference between my regular rotate bands and the others. Looks like I tend toward slightly less danceability, lower energy, but higher valence. Some of this might be influenced by higher proportion of second wave tracks in my regular rotation category. The table below reveals me to be an old Millennial, with much higher proportions of tracks from regular rotation bands in the 1994 to 2008 waves.
+Not a ton of difference between my regular rotation bands and the others. Looks like I tend toward slightly less danceability, lower energy, but higher valence. Some of this might be influenced by higher proportion of second wave tracks in my regular rotation category. The table below reveals me as an old Millennial, with much higher proportions of tracks from regular rotation bands in the 1994 to 2008 waves.
 
 
 ```{r}
